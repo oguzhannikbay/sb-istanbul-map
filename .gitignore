@@ -1,0 +1,26 @@
+# Python / conda
+__pycache__/
+*.py[cod]
+.Python
+.venv/
+venv/
+.env
+
+# OSM + large intermediates
+data/
+*.osm.pbf
+*.osm.pbf.part
+
+# Map generation outputs
+output/
+package/
+
+# Tool downloads
+bin/
+tools/*.jar
+tools/planetiler.jar
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

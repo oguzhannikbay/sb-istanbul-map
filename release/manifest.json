@@ -1,0 +1,12 @@
+{
+  "id": "istanbul",
+  "name": "İstanbul",
+  "description": "Metropolitan Istanbul map spanning Europe and Asia across the Bosphorus. Built with Depot (OSM + Overture buildings). Synthetic demand from building footprints with special demand for airports, universities, stadiums, and shopping centers.",
+  "version": "v0.1.0",
+  "author": {
+    "name": "oguzhannikbay"
+  },
+  "dependencies": {
+    "subway-builder": ">=v1.3.7"
+  }
+}
