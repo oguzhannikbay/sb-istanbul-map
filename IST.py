@@ -71,6 +71,8 @@ def make_mapgen(osmpbf: Path) -> MapGen:
         building_tile_simplification=1,
         create_building_foundations=True,
         create_ocean_foundations=True,
+        # Istanbul has large barracks; don't paint military landuse as airport.
+        color_military_like_aerodrome=False,
         label_name_language="prefer:tr",
         road_name_preferred_language="tr",
         cities=LABEL_CITIES,

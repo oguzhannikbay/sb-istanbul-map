@@ -1,41 +1,47 @@
 """
 Build demand_data.json + Railyard config/description for Istanbul.
 
-Base demand is synthesized from Overture building footprints (area × floors),
-then special demand (airports, universities, venues) is layered via depot.
-Driving times use a road-detour haversine model (no Docker/OSRM required).
+Base residential demand is taken from TÜİK ADNKS district (ilçe) populations,
+spatially joined to OSM admin_level=6 boundaries and distributed to a ~700 m
+grid using Overture building footprint weights (not as the population source).
+
+Jobs are estimated from building capacity with a CBD boost (no official
+home↔work matrix is published for Türkiye), then a gravity model assigns
+commutes. Special demand (airports, universities, venues) is layered via depot.
 """
 
 from __future__ import annotations
 
 import json
 import math
+import re
+import unicodedata
 from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 from depot.demand import DemandData
-from IST import ISTANBUL_BBOX, OUTPUT
+from IST import ISTANBUL_BBOX, OUTPUT, ROOT
 
 CITY_DIR = OUTPUT / "IST"
 DEMAND_PATH = CITY_DIR / "demand_data.json"
 BUILDINGS_PATH = CITY_DIR / "buildings.geojson"
+TUIK_POP = ROOT / "data" / "tuik" / "istanbul_district_population.json"
+DISTRICTS_PATH = ROOT / "data" / "tuik" / "istanbul_districts_osm.geojson"
 
-# Target playable scale (not full census)
-TARGET_WORKERS = 1_800_000
+# Scale workers from residential population (playable, not full census commute volume)
+ACTIVITY_RATE = 0.42  # share of residents modeled as daily workers
 MAX_POP_SIZE = 200
-GRID_M = 700  # demand point grid cell size
+GRID_M = 700
 MAX_COMMUTE_KM = 45
-MIN_COMMUTE_M = 1200  # discourage same-block work assignment
-JOBS_PER_RESIDENT = 0.92
+MIN_COMMUTE_M = 1200
 AVG_SPEED_KPH = 28.0
 ROAD_DETOUR = 1.35
-# Soft distance decay → longer, more metro-relevant trips
 GRAVITY_EXP = 1.05
 TOP_DESTINATIONS = 18
 
-# Rough CBD: Taksim–Şişli–Levent–Maslak corridor (boost jobs)
+# Taksim–Şişli–Levent–Maslak job corridor
 CBD_BBOX = [28.95, 41.02, 29.05, 41.12]
 
 
@@ -49,7 +55,6 @@ def haversine_m(lon1, lat1, lon2, lat2) -> float:
 
 
 def haversine_matrix_m(lon, lat) -> np.ndarray:
-    """Pairwise haversine distance matrix in meters. lon/lat shape (N,)."""
     lon = np.radians(lon.astype(float))
     lat = np.radians(lat.astype(float))
     dlon = lon[None, :] - lon[:, None]
@@ -61,19 +66,60 @@ def haversine_matrix_m(lon, lat) -> np.ndarray:
     return 6371000.0 * 2 * np.arcsin(np.minimum(1.0, np.sqrt(a)))
 
 
+def norm_name(s: str) -> str:
+    s = unicodedata.normalize("NFKC", s or "").strip().lower()
+    s = s.replace("i̇", "i").replace("ı", "i").replace("â", "a").replace("û", "u")
+    s = s.replace("ğ", "g").replace("ü", "u").replace("ş", "s").replace("ö", "o").replace("ç", "c")
+    s = re.sub(r"\s+", " ", s)
+    s = re.sub(r"\s+belediyesi$", "", s)
+    return s
+
+
 def estimate_floors(height: float) -> float:
     if height is None or (isinstance(height, float) and math.isnan(height)):
-        return 3.0
-    return max(1.0, min(40.0, float(height) / 3.2))
+        return 5.0
+    return max(1.0, min(80.0, float(height) / 3.2))
+
+
+def load_tuik_populations() -> dict[str, int]:
+    meta = json.loads(TUIK_POP.read_text(encoding="utf-8"))
+    out = {}
+    for d in meta["districts"]:
+        out[norm_name(d["district"])] = int(d["population"])
+    # alias Kağıthane / Kâğıthane
+    if "kagithane" in out:
+        out["kagithane"] = out["kagithane"]
+    return out
 
 
 def build_base_demand() -> dict:
+    if not TUIK_POP.exists():
+        raise SystemExit(f"Missing {TUIK_POP}")
+    if not DISTRICTS_PATH.exists():
+        raise SystemExit(f"Missing {DISTRICTS_PATH}")
+    if not BUILDINGS_PATH.exists():
+        raise SystemExit(f"Missing {BUILDINGS_PATH}")
+
+    tuik = load_tuik_populations()
+    print(f"TÜİK districts loaded: {len(tuik)}  total pop={sum(tuik.values()):,}", flush=True)
+
+    districts = gpd.read_file(DISTRICTS_PATH)
+    districts = districts[districts.geometry.notna() & ~districts.geometry.is_empty].copy()
+    districts["key"] = districts["name"].map(norm_name)
+    # Keep only Istanbul province districts present in TÜİK file
+    districts = districts[districts["key"].isin(tuik)].copy()
+    districts["population"] = districts["key"].map(tuik)
+    districts = districts.dissolve(by="key", as_index=False, aggfunc={"population": "first", "name": "first"})
+    print(f"Matched OSM district polygons: {len(districts)}", flush=True)
+    unmatched = sorted(set(tuik) - set(districts["key"]))
+    if unmatched:
+        print(f"WARNING: TÜİK districts without OSM polygon in bbox: {unmatched}", flush=True)
+
     print(f"Loading buildings from {BUILDINGS_PATH} ...", flush=True)
     gdf = gpd.read_file(BUILDINGS_PATH)
     gdf = gdf[gdf.geometry.notna() & ~gdf.geometry.is_empty].copy()
     gdf["height"] = pd.to_numeric(gdf.get("height"), errors="coerce")
 
-    # Metric CRS for area / grid
     metric = gdf.to_crs(epsg=3857)
     metric["area_m2"] = metric.geometry.area
     metric["floors"] = gdf["height"].map(estimate_floors).to_numpy()
@@ -86,35 +132,70 @@ def build_base_demand() -> dict:
     cents_wgs = gpd.GeoSeries(centroids, crs=metric.crs).to_crs(epsg=4326)
     metric["lon"] = cents_wgs.x.to_numpy()
     metric["lat"] = cents_wgs.y.to_numpy()
+    pts = gpd.GeoDataFrame(
+        metric[["gx", "gy", "capacity", "lon", "lat"]],
+        geometry=gpd.points_from_xy(metric["lon"], metric["lat"]),
+        crs="EPSG:4326",
+    )
 
-    agg = (
-        metric.groupby(["gx", "gy"], as_index=False)
+    joined = gpd.sjoin(
+        pts,
+        districts[["key", "population", "geometry"]],
+        how="left",
+        predicate="within",
+    )
+    # Drop buildings outside matched districts
+    joined = joined[joined["key"].notna()].copy()
+    print(f"Buildings in matched districts: {len(joined):,}", flush=True)
+
+    cell = (
+        joined.groupby(["gx", "gy", "key"], as_index=False)
         .agg(
             capacity=("capacity", "sum"),
             lon=("lon", "mean"),
             lat=("lat", "mean"),
-            n_buildings=("capacity", "count"),
+            population=("population", "first"),
         )
     )
-    print(f"Aggregated {len(metric):,} buildings → {len(agg):,} grid cells", flush=True)
 
-    # Job share: taller/denser cells + CBD bonus
+    # Distribute each district's TÜİK population across its cells by capacity weight
+    cell["residents"] = 0.0
+    for key, grp in cell.groupby("key"):
+        w = grp["capacity"].to_numpy(dtype=float)
+        w = w / w.sum() if w.sum() > 0 else np.ones(len(grp)) / len(grp)
+        pop = float(tuik[key])
+        # Only the portion of district population that falls inside our map bbox cells
+        # (clipped districts already reduced geometry; scale by capacity share of full district
+        # is approximate — use full district pop on clipped cells for playable coverage)
+        cell.loc[grp.index, "residents"] = w * pop
+
+    # Collapse duplicate gx,gy from district borders (rare)
+    agg = (
+        cell.groupby(["gx", "gy"], as_index=False)
+        .agg(
+            capacity=("capacity", "sum"),
+            lon=("lon", "mean"),
+            lat=("lat", "mean"),
+            residents=("residents", "sum"),
+        )
+    )
+    print(
+        f"Grid cells: {len(agg):,}  assigned residents: {agg['residents'].sum():,.0f}",
+        flush=True,
+    )
+
     in_cbd = (
         (agg["lon"] >= CBD_BBOX[0])
         & (agg["lat"] >= CBD_BBOX[1])
         & (agg["lon"] <= CBD_BBOX[2])
         & (agg["lat"] <= CBD_BBOX[3])
     )
-    job_weight = agg["capacity"] * (1.0 + 1.8 * in_cbd.astype(float))
-    res_weight = agg["capacity"] * (1.0 + 0.15 * (~in_cbd).astype(float))
-
+    job_weight = agg["capacity"] * (1.0 + 2.2 * in_cbd.astype(float))
     job_weight = job_weight / job_weight.sum()
-    res_weight = res_weight / res_weight.sum()
+    target_workers = float(agg["residents"].sum() * ACTIVITY_RATE)
+    jobs = (job_weight * target_workers).to_numpy()
+    residents = agg["residents"].to_numpy()
 
-    jobs = (job_weight * TARGET_WORKERS).to_numpy()
-    residents = (res_weight * (TARGET_WORKERS / JOBS_PER_RESIDENT)).to_numpy()
-
-    # Drop tiny cells
     keep = (jobs + residents) >= 40
     agg = agg.loc[keep].reset_index(drop=True)
     jobs = jobs[keep]
@@ -132,7 +213,6 @@ def build_base_demand() -> dict:
             }
         )
 
-    # Gravity-model pops: each home cell distributes residents to nearby job cells
     pops = []
     pop_i = 0
     lon = agg["lon"].to_numpy()
@@ -142,14 +222,13 @@ def build_base_demand() -> dict:
     print("Building commute matrix (gravity model)...", flush=True)
     dist_mat = haversine_matrix_m(lon, lat)
     for hi in range(len(points)):
-        home_res = residents[hi]
+        home_res = residents[hi] * ACTIVITY_RATE
         if home_res < 5:
             continue
         dists = dist_mat[hi]
         attract = job_arr / np.maximum(dists, 800.0) ** GRAVITY_EXP
         attract[dists < MIN_COMMUTE_M] = 0
         attract[dists > MAX_COMMUTE_KM * 1000] = 0
-        # Mild preference for mid-range urban trips (~5–20 km)
         mid = (dists >= 5000) & (dists <= 20000)
         attract[mid] *= 1.6
         if attract.sum() <= 0:
@@ -376,7 +455,7 @@ SPECIAL_ENTERTAINMENT = [
 
 
 def add_special_demand(dd: DemandData) -> None:
-    univ_travel = (0.3, 0.9)  # on-campus / off-campus travel propensity
+    univ_travel = (0.3, 0.9)
 
     for air in SPECIAL_AIRPORTS:
         dd.add_points(dict(air))
@@ -414,7 +493,6 @@ def add_special_demand(dd: DemandData) -> None:
 
 
 def fill_missing_routes(dd: DemandData) -> None:
-    """Ensure every pop has driving fields (special demand may lack them)."""
     points = {p["id"]: p for p in dd["points"]}
     for pop in dd["pops"]:
         if pop.get("drivingDistance") and pop.get("drivingSeconds"):
@@ -427,9 +505,6 @@ def fill_missing_routes(dd: DemandData) -> None:
 
 
 def main() -> None:
-    if not BUILDINGS_PATH.exists():
-        raise SystemExit(f"Missing {BUILDINGS_PATH}. Run IST.py first.")
-
     CITY_DIR.mkdir(parents=True, exist_ok=True)
     base = build_base_demand()
     with open(DEMAND_PATH, "w", encoding="utf-8") as f:
@@ -458,19 +533,22 @@ def main() -> None:
         bbox=ISTANBUL_BBOX,
         description="Boğaz'ın iki yakasında metro ağı kur — Avrupa ve Asya'yı bağla.",
         creator="oguzhan",
-        version="0.1.0",
+        version="0.2.0",
         country="TR",
-        initial_view_state=[28.9784, 41.0082],  # Sultanahmet / historic peninsula
+        initial_view_state=[28.9784, 41.0082],
     )
 
     dd.create_description(
         mapID="istanbul-tr",
         methodology=[
             '<li><a href="https://github.com/Subway-Builder-Modded/depot">Depot</a> MapGen (OSM + Overture buildings → PMTiles / buildings_index)</li>',
-            "<li>Synthetic demand: building footprint × estimated floors, gravity-model commuting, special demand for airports / universities / venues</li>",
+            "<li>Residential demand from TÜİK ADNKS 2025 district (ilçe) populations, distributed to a ~700 m grid by building-capacity weights within OSM admin boundaries</li>",
+            "<li>Jobs estimated from building capacity with CBD boost; gravity-model commuting (no official commute matrix); special demand for airports / universities / venues</li>",
+            "<li>Building heights: Overture height where present, else OSM building:levels/height, else footprint-based estimate</li>",
         ],
         data_sources=[
-            '<li><a href="https://download.geofabrik.de/europe/turkey.html">Geofabrik Turkey OSM PBF</a></li>',
+            '<li><a href="https://www.tuik.gov.tr/">TÜİK</a> ADNKS 2025 district populations (via published ilçe table)</li>',
+            '<li><a href="https://download.geofabrik.de/europe/turkey.html">Geofabrik Turkey OSM PBF</a> (admin boundaries, roads, building:levels)</li>',
             '<li><a href="https://overturemaps.org/">Overture Maps</a> buildings</li>',
             "<li>Special demand capacities estimated from public airport / university / venue figures</li>",
         ],

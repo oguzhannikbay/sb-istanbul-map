@@ -6,8 +6,10 @@ __pycache__/
 venv/
 .env
 
-# OSM + large intermediates
-data/
+# OSM + large intermediates (keep small TÜİK reference data tracked)
+data/*
+!data/tuik/
+!data/tuik/**
 *.osm.pbf
 *.osm.pbf.part
 

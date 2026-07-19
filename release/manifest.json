@@ -1,8 +1,8 @@
 {
   "id": "istanbul",
   "name": "İstanbul",
-  "description": "Metropolitan Istanbul map spanning Europe and Asia across the Bosphorus. Built with Depot (OSM + Overture buildings). Synthetic demand from building footprints with special demand for airports, universities, stadiums, and shopping centers.",
-  "version": "v0.1.0",
+  "description": "Metropolitan Istanbul across the Bosphorus. TÜİK ADNKS 2025 district demand; Depot OSM+Overture tiles; building heights from Overture/OSM levels/estimates; military landuse no longer painted as airport.",
+  "version": "v0.2.0",
   "author": {
     "name": "oguzhannikbay"
   },

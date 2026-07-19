@@ -1,0 +1,241 @@
+{
+  "source": "TÜİK ADNKS via tr.wikipedia.org/wiki/İstanbul'un_ilçeleri (Nüfus 2025)",
+  "primary_source": "Türkiye İstatistik Kurumu (TÜİK) — Adrese Dayalı Nüfus Kayıt Sistemi (ADNKS)",
+  "year": 2025,
+  "districts": [
+    {
+      "district": "Adalar",
+      "population_2024": 16979,
+      "population_2025": 17489,
+      "population": 17489
+    },
+    {
+      "district": "Arnavutköy",
+      "population_2024": 344868,
+      "population_2025": 358469,
+      "population": 358469
+    },
+    {
+      "district": "Ataşehir",
+      "population_2024": 414866,
+      "population_2025": 412125,
+      "population": 412125
+    },
+    {
+      "district": "Avcılar",
+      "population_2024": 440934,
+      "population_2025": 440663,
+      "population": 440663
+    },
+    {
+      "district": "Bağcılar",
+      "population_2024": 713594,
+      "population_2025": 707635,
+      "population": 707635
+    },
+    {
+      "district": "Bahçelievler",
+      "population_2024": 560086,
+      "population_2025": 539035,
+      "population": 539035
+    },
+    {
+      "district": "Bakırköy",
+      "population_2024": 219893,
+      "population_2025": 218204,
+      "population": 218204
+    },
+    {
+      "district": "Başakşehir",
+      "population_2024": 520467,
+      "population_2025": 536797,
+      "population": 536797
+    },
+    {
+      "district": "Bayrampaşa",
+      "population_2024": 268303,
+      "population_2025": 272978,
+      "population": 272978
+    },
+    {
+      "district": "Beşiktaş",
+      "population_2024": 167264,
+      "population_2025": 165895,
+      "population": 165895
+    },
+    {
+      "district": "Beykoz",
+      "population_2024": 245440,
+      "population_2025": 246833,
+      "population": 246833
+    },
+    {
+      "district": "Beylikdüzü",
+      "population_2024": 415290,
+      "population_2025": 422988,
+      "population": 422988
+    },
+    {
+      "district": "Beyoğlu",
+      "population_2024": 216688,
+      "population_2025": 215991,
+      "population": 215991
+    },
+    {
+      "district": "Büyükçekmece",
+      "population_2024": 280528,
+      "population_2025": 283239,
+      "population": 283239
+    },
+    {
+      "district": "Çatalca",
+      "population_2024": 80399,
+      "population_2025": 81143,
+      "population": 81143
+    },
+    {
+      "district": "Çekmeköy",
+      "population_2024": 306739,
+      "population_2025": 315959,
+      "population": 315959
+    },
+    {
+      "district": "Esenler",
+      "population_2024": 423625,
+      "population_2025": 419878,
+      "population": 419878
+    },
+    {
+      "district": "Esenyurt",
+      "population_2024": 988369,
+      "population_2025": 1003905,
+      "population": 1003905
+    },
+    {
+      "district": "Eyüpsultan",
+      "population_2024": 420706,
+      "population_2025": 425216,
+      "population": 425216
+    },
+    {
+      "district": "Fatih",
+      "population_2024": 354472,
+      "population_2025": 351786,
+      "population": 351786
+    },
+    {
+      "district": "Gaziosmanpaşa",
+      "population_2024": 479931,
+      "population_2025": 478395,
+      "population": 478395
+    },
+    {
+      "district": "Güngören",
+      "population_2024": 264831,
+      "population_2025": 251242,
+      "population": 251242
+    },
+    {
+      "district": "Kadıköy",
+      "population_2024": 462189,
+      "population_2025": 458573,
+      "population": 458573
+    },
+    {
+      "district": "Kağıthane",
+      "population_2024": 444820,
+      "population_2025": 446420,
+      "population": 446420
+    },
+    {
+      "district": "Kartal",
+      "population_2024": 475859,
+      "population_2025": 475630,
+      "population": 475630
+    },
+    {
+      "district": "Küçükçekmece",
+      "population_2024": 789033,
+      "population_2025": 785270,
+      "population": 785270
+    },
+    {
+      "district": "Maltepe",
+      "population_2024": 524921,
+      "population_2025": 525044,
+      "population": 525044
+    },
+    {
+      "district": "Pendik",
+      "population_2024": 749356,
+      "population_2025": 752033,
+      "population": 752033
+    },
+    {
+      "district": "Sancaktepe",
+      "population_2024": 502077,
+      "population_2025": 507500,
+      "population": 507500
+    },
+    {
+      "district": "Sarıyer",
+      "population_2024": 342582,
+      "population_2025": 344883,
+      "population": 344883
+    },
+    {
+      "district": "Silivri",
+      "population_2024": 232156,
+      "population_2025": 240029,
+      "population": 240029
+    },
+    {
+      "district": "Sultanbeyli",
+      "population_2024": 369193,
+      "population_2025": 378908,
+      "population": 378908
+    },
+    {
+      "district": "Sultangazi",
+      "population_2024": 532601,
+      "population_2025": 529306,
+      "population": 529306
+    },
+    {
+      "district": "Şile",
+      "population_2024": 48936,
+      "population_2025": 50090,
+      "population": 50090
+    },
+    {
+      "district": "Şişli",
+      "population_2024": 263063,
+      "population_2025": 261959,
+      "population": 261959
+    },
+    {
+      "district": "Tuzla",
+      "population_2024": 301400,
+      "population_2025": 313865,
+      "population": 313865
+    },
+    {
+      "district": "Ümraniye",
+      "population_2024": 727819,
+      "population_2025": 728913,
+      "population": 728913
+    },
+    {
+      "district": "Üsküdar",
+      "population_2024": 512981,
+      "population_2025": 514294,
+      "population": 514294
+    },
+    {
+      "district": "Zeytinburnu",
+      "population_2024": 278344,
+      "population_2025": 275471,
+      "population": 275471
+    }
+  ]
+}
